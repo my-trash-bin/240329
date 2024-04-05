@@ -1,3 +1,9 @@
+type ExpandRecursively<T> = T extends object
+  ? T extends infer O
+    ? { [K in keyof O]: ExpandRecursively<O[K]> }
+    : never
+  : T;
+
 export interface Model {
   primitive: {};
   relation: {};
@@ -44,46 +50,48 @@ export type Result<
 export type IncludeResult<
   TModel extends Model,
   TInput extends IncludeInput<TModel>
-> = TModel["primitive"] & {
-  [K in keyof TInput["include"]]-?: K extends keyof TModel["relation"]
-    ? NonNullable<TModel["relation"][K]> extends Model
-      ? TInput["include"][K] extends Input<NonNullable<TModel["relation"][K]>>
-        ?
-            | Result<NonNullable<TModel["relation"][K]>, TInput["include"][K]>
-            | ({} extends Pick<TModel["relation"], K> ? null : never)
+> = ExpandRecursively<
+  TModel["primitive"] & {
+    [K in keyof TInput["include"]]-?: K extends keyof TModel["relation"]
+      ? NonNullable<TModel["relation"][K]> extends Model
+        ? TInput["include"][K] extends Input<NonNullable<TModel["relation"][K]>>
+          ?
+              | Result<NonNullable<TModel["relation"][K]>, TInput["include"][K]>
+              | ({} extends Pick<TModel["relation"], K> ? null : never)
+          : {
+              message: "Invalid input";
+              model: NonNullable<TModel["relation"][K]>;
+              input: TInput["include"][K];
+            }
+        : NonNullable<TModel["relation"][K]> extends Model[]
+        ? TInput["include"][K] extends Input<
+            NonNullable<TModel["relation"][K]>[number]
+          >
+          ?
+              | Result<
+                  NonNullable<TModel["relation"][K]>[number],
+                  TInput["include"][K]
+                >[]
+              | ({} extends Pick<TModel["relation"], K> ? null : never)
+          : {
+              message: "Invalid input";
+              model: NonNullable<TModel["relation"][K]>;
+              input: TInput["include"][K];
+            }
         : {
-            message: "Invalid input";
-            model: NonNullable<TModel["relation"][K]>;
-            input: TInput["include"][K];
+            message: "Invalid model";
+            parent: TModel;
+            key: K;
+            children: NonNullable<TModel["relation"][K]>;
           }
-      : NonNullable<TModel["relation"][K]> extends Model[]
-      ? TInput["include"][K] extends Input<
-          NonNullable<TModel["relation"][K]>[number]
-        >
-        ?
-            | Result<
-                NonNullable<TModel["relation"][K]>[number],
-                TInput["include"][K]
-              >[]
-            | ({} extends Pick<TModel["relation"], K> ? null : never)
-        : {
-            message: "Invalid input";
-            model: NonNullable<TModel["relation"][K]>;
-            input: TInput["include"][K];
-          }
-      : {
-          message: "Invalid model";
-          parent: TModel;
-          key: K;
-          children: NonNullable<TModel["relation"][K]>;
-        }
-    : never;
-};
+      : never;
+  }
+>;
 
 export type SelectResult<
   TModel extends Model,
   TInput extends SelectInput<TModel>
-> = {
+> = ExpandRecursively<{
   [K in keyof TInput["select"]]-?: K extends keyof TModel["relation"]
     ? NonNullable<TModel["relation"][K]> extends Model
       ? TInput["select"][K] extends Input<NonNullable<TModel["relation"][K]>>
@@ -121,4 +129,4 @@ export type SelectResult<
         | TModel["primitive"][K]
         | ({} extends Pick<TModel["primitive"], K> ? null : never)
     : never;
-};
+}>;
