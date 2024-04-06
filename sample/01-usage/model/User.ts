@@ -1,4 +1,4 @@
-import { ModelByFields } from "./common/ModelByFields";
+import { ModelByFields } from "../../00-common/ModelByFields";
 
 import { Article } from "./Article";
 import { Comment } from "./Comment";

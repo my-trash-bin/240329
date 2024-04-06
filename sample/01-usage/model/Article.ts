@@ -1,5 +1,5 @@
+import { ModelByFields } from "../../00-common/ModelByFields";
 import { Comment } from "./Comment";
-import { ModelByFields } from "./common/ModelByFields";
 
 import { User } from "./User";
 
