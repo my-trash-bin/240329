@@ -64,7 +64,7 @@ type SelectInputInternal<T extends Model> = {
   readonly [K in
     | keyof T["primitive"]
     | keyof T["relation"]]?: K extends keyof T["primitive"]
-    ? true
+    ? OK<true>
     : K extends keyof T["relation"]
     ? NonNullable<T["relation"][K]> extends Model
       ? Wrap<Input<NonNullable<T["relation"][K]>>>
@@ -74,11 +74,17 @@ type SelectInputInternal<T extends Model> = {
     : never;
 };
 
+export type Primitive<T extends Model> = {
+  [K in keyof T["primitive"]]-?:
+    | NonNullable<T["primitive"][K]>
+    | ({} extends Pick<T["primitive"], K> ? null : never);
+};
+
 export type Result<
   TModel extends Model,
   TInput extends Input<TModel>
 > = TInput extends true
-  ? TModel["primitive"]
+  ? Primitive<TModel>
   : TInput extends IncludeInput<TModel>
   ? IncludeResult<TModel, TInput>
   : TInput extends SelectInput<TModel>
@@ -92,7 +98,7 @@ export type IncludeResult<
 type IncludeResultInternal<
   TModel extends Model,
   TInput extends IncludeInput<TModel>
-> = ReversePostprocess<TModel["primitive"]> & {
+> = ReversePostprocess<Primitive<TModel>> & {
   [K in keyof TInput["include"]]-?: K extends keyof TModel["relation"]
     ? NonNullable<TModel["relation"][K]> extends Model
       ? TInput["include"][K] extends Input<NonNullable<TModel["relation"][K]>>
@@ -138,7 +144,7 @@ type SelectResultInternal<
       : InvalidModelError<TModel, K>
     : K extends keyof TModel["primitive"]
     ? Wrap<
-        | TModel["primitive"][K]
+        | NonNullable<TModel["primitive"][K]>
         | ({} extends Pick<TModel["primitive"], K> ? null : never)
       >
     : never;
