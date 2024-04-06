@@ -14,6 +14,7 @@ export interface ArticleRelationFields {
 }
 
 export type Article = ModelByFields<
+  "Article",
   ArticlePrimitiveFields,
   ArticleRelationFields
 >;

@@ -15,6 +15,7 @@ export interface CommentRelationFields {
 }
 
 export type Comment = ModelByFields<
+  "Comment",
   CommentPrimitiveFields,
   CommentRelationFields
 >;

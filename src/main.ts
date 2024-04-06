@@ -7,13 +7,35 @@ type Wrap<T> = [{ isError: true }] extends [T]
     : never
   : OK<T>;
 type Postprocess<T> = [AnyError] extends [T[keyof T]]
-  ? Extract<T[keyof T], ErrorBase<any>>
-  : { [K in keyof T]: T[K] extends OK<infer I> ? I : never };
+  ? ExpandRecursively<Extract<T[keyof T], ErrorBase<any>>>
+  : { [K in keyof T]: T[K] extends OK<infer I> | undefined ? I : never };
 type ExpandRecursively<T> = T extends object
   ? T extends infer O
     ? { [K in keyof O]: ExpandRecursively<O[K]> }
     : never
   : T;
+
+type TryGetModelName<T> = T extends { name: infer I }
+  ? string extends I
+    ? "(no name)"
+    : I
+  : T extends (infer I)[]
+  ? TryGetModelName<I>
+  : "(no name)";
+type InvalidModelError<TParent, TKey extends keyof TParent> = ErrorBase<{
+  message: "Invalid Model";
+  parent: TryGetModelName<TParent>;
+  key: TKey;
+  children: TryGetModelName<TParent[TKey]>;
+}>;
+type InvalidInputError<TModel, TInput> = ErrorBase<{
+  message: "Invalid Input";
+  model: TryGetModelName<TModel>;
+  input: TInput;
+}>;
+type ReversePostprocess<T> = {
+  [K in keyof T]: OK<T[K]>;
+};
 
 export interface Model {
   primitive: {};
@@ -26,37 +48,29 @@ export type IncludeInput<T extends Model> = {
   include: Postprocess<IncludeInputInternal<T>>;
 };
 type IncludeInputInternal<T extends Model> = {
-  [K in keyof T["relation"]]?: NonNullable<T["relation"][K]> extends Model
+  readonly [K in keyof T["relation"]]?: NonNullable<
+    T["relation"][K]
+  > extends Model
     ? Wrap<Input<NonNullable<T["relation"][K]>>>
-    : NonNullable<T["relation"][K]> extends Model[]
-    ? Wrap<Input<NonNullable<T["relation"][K]>[number]>>
-    : ErrorBase<{
-        message: "Invalid model";
-        parent: T;
-        key: K;
-        children: NonNullable<T["relation"][K]>;
-      }>;
+    : T["relation"][K] extends Model[]
+    ? Wrap<Input<T["relation"][K][number]>>
+    : InvalidModelError<T, K>;
 };
 
 export type SelectInput<T extends Model> = {
   select: Postprocess<SelectInputInternal<T>>;
 };
 type SelectInputInternal<T extends Model> = {
-  [K in
+  readonly [K in
     | keyof T["primitive"]
     | keyof T["relation"]]?: K extends keyof T["primitive"]
     ? true
     : K extends keyof T["relation"]
     ? NonNullable<T["relation"][K]> extends Model
       ? Wrap<Input<NonNullable<T["relation"][K]>>>
-      : NonNullable<T["relation"][K]> extends Model[]
-      ? Wrap<Input<NonNullable<T["relation"][K]>[number]>>
-      : ErrorBase<{
-          message: "Invalid model";
-          parent: T;
-          key: K;
-          children: NonNullable<T["relation"][K]>;
-        }>
+      : T["relation"][K] extends Model[]
+      ? Wrap<Input<T["relation"][K][number]>>
+      : InvalidModelError<T, K>
     : never;
 };
 
@@ -78,7 +92,7 @@ export type IncludeResult<
 type IncludeResultInternal<
   TModel extends Model,
   TInput extends IncludeInput<TModel>
-> = TModel["primitive"] & {
+> = ReversePostprocess<TModel["primitive"]> & {
   [K in keyof TInput["include"]]-?: K extends keyof TModel["relation"]
     ? NonNullable<TModel["relation"][K]> extends Model
       ? TInput["include"][K] extends Input<NonNullable<TModel["relation"][K]>>
@@ -86,33 +100,15 @@ type IncludeResultInternal<
             | Result<NonNullable<TModel["relation"][K]>, TInput["include"][K]>
             | ({} extends Pick<TModel["relation"], K> ? null : never)
           >
-        : ErrorBase<{
-            message: "Invalid input";
-            model: NonNullable<TModel["relation"][K]>;
-            input: TInput["include"][K];
-          }>
-      : NonNullable<TModel["relation"][K]> extends Model[]
-      ? TInput["include"][K] extends Input<
-          NonNullable<TModel["relation"][K]>[number]
-        >
+        : InvalidInputError<TModel["relation"][K], TInput["include"][K]>
+      : TModel["relation"][K] extends Model[]
+      ? TInput["include"][K] extends Input<TModel["relation"][K][number]>
         ? Wrap<
-            | Result<
-                NonNullable<TModel["relation"][K]>[number],
-                TInput["include"][K]
-              >[]
+            | Result<TModel["relation"][K][number], TInput["include"][K]>[]
             | ({} extends Pick<TModel["relation"], K> ? null : never)
           >
-        : ErrorBase<{
-            message: "Invalid input";
-            model: NonNullable<TModel["relation"][K]>;
-            input: TInput["include"][K];
-          }>
-      : ErrorBase<{
-          message: "Invalid model";
-          parent: TModel;
-          key: K;
-          children: NonNullable<TModel["relation"][K]>;
-        }>
+        : InvalidInputError<TModel["relation"][K], TInput["include"][K]>
+      : InvalidModelError<TModel, K>
     : never;
 };
 
@@ -131,33 +127,15 @@ type SelectResultInternal<
             | Result<NonNullable<TModel["relation"][K]>, TInput["select"][K]>
             | ({} extends Pick<TModel["relation"], K> ? null : never)
           >
-        : ErrorBase<{
-            message: "Invalid input";
-            model: NonNullable<TModel["relation"][K]>;
-            input: TInput["select"][K];
-          }>
-      : NonNullable<TModel["relation"][K]> extends Model[]
-      ? TInput["select"][K] extends Input<
-          NonNullable<TModel["relation"][K]>[number]
-        >
+        : InvalidInputError<TModel["relation"][K], TInput["select"][K]>
+      : TModel["relation"][K] extends Model[]
+      ? TInput["select"][K] extends Input<TModel["relation"][K][number]>
         ? Wrap<
-            | Result<
-                NonNullable<TModel["relation"][K]>[number],
-                TInput["select"][K]
-              >[]
+            | Result<TModel["relation"][K][number], TInput["select"][K]>[]
             | ({} extends Pick<TModel["relation"], K> ? null : never)
           >
-        : ErrorBase<{
-            message: "Invalid input";
-            model: NonNullable<TModel["relation"][K]>;
-            input: TInput["select"][K];
-          }>
-      : ErrorBase<{
-          message: "Invalid model";
-          parent: TModel;
-          key: K;
-          children: NonNullable<TModel["relation"][K]>;
-        }>
+        : InvalidInputError<TModel["relation"][K], TInput["select"][K]>
+      : InvalidModelError<TModel, K>
     : K extends keyof TModel["primitive"]
     ? Wrap<
         | TModel["primitive"][K]

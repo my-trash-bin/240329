@@ -1,6 +1,7 @@
 import { ModelByFields } from "./common/ModelByFields";
 
 import { Article } from "./Article";
+import { Comment } from "./Comment";
 
 export interface UserPrimitiveFields {
   id: number;
@@ -13,4 +14,8 @@ export interface UserRelationFields {
   comments: Comment[];
 }
 
-export type User = ModelByFields<UserPrimitiveFields, UserRelationFields>;
+export type User = ModelByFields<
+  "User",
+  UserPrimitiveFields,
+  UserRelationFields
+>;
