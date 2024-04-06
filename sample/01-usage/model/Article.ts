@@ -1,6 +1,6 @@
 import { ModelByFields } from "../../00-common/ModelByFields";
-import { Comment } from "./Comment";
 
+import { Comment } from "./Comment";
 import { User } from "./User";
 
 export interface ArticlePrimitiveFields {
